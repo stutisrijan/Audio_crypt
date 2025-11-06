@@ -57,3 +57,85 @@ def decrypt_file():
         f.write(decrypted_data)
 
     messagebox.showinfo("Success", f"File Decrypted!\nSaved as: {decrypted_file}")
+
+# ---------------- LAN File Transfer ---------------- #
+def send_file_over_lan():
+    file_path = filedialog.askopenfilename(filetypes=[("Encrypted files", "*.bin"), ("All Files", "*.*")])
+    if not file_path:
+        return
+
+    host = host_entry.get()
+    port = int(port_entry.get())
+
+    try:
+        s = socket.socket()
+        s.connect((host, port))
+        with open(file_path, "rb") as f:
+            while chunk := f.read(1024):
+                s.send(chunk)
+        s.close()
+        messagebox.showinfo("Success", f"File sent to {host}:{port}")
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to send file:\n{e}")
+
+
+def receive_file_over_lan():
+    def server_thread():
+        try:
+            s = socket.socket()
+            s.bind(('', int(port_entry.get())))
+            s.listen(1)
+            conn, addr = s.accept()
+            save_path = filedialog.asksaveasfilename(defaultextension=".bin", filetypes=[("Encrypted files", "*.bin")])
+            if not save_path:
+                conn.close()
+                s.close()
+                return
+            with open(save_path, "wb") as f:
+                while data := conn.recv(1024):
+                    f.write(data)
+            conn.close()
+            s.close()
+            messagebox.showinfo("Success", f"File received and saved as {save_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Receiver error:\n{e}")
+
+    threading.Thread(target=server_thread, daemon=True).start()
+    messagebox.showinfo("Receiver Active", f"Listening on port {port_entry.get()}...")
+
+
+# ---------------- GUI Setup ---------------- #
+root = tk.Tk()
+root.title("Hybrid Audio Encryptor & Secure LAN Transfer")
+root.geometry("600x500")
+root.config(bg="#101820")
+
+title = tk.Label(root, text="🔒 Audio Encryptor & Secure File Transfer", bg="#101820", fg="#FEE715", font=("Helvetica", 16, "bold"))
+title.pack(pady=20)
+
+frame = tk.Frame(root, bg="#1B1B2F", bd=3, relief="ridge")
+frame.pack(padx=20, pady=10, fill="both", expand=True)
+
+btn_style = {"width": 25, "height": 2, "font": ("Arial", 12, "bold")}
+
+tk.Button(frame, text="Generate RSA Keys", command=generate_rsa_keys, bg="#008CBA", fg="white", **btn_style).pack(pady=8)
+tk.Button(frame, text="Encrypt Audio File", command=encrypt_file, bg="#3a7bd5", fg="white", **btn_style).pack(pady=8)
+tk.Button(frame, text="Decrypt File", command=decrypt_file, bg="#00c853", fg="white", **btn_style).pack(pady=8)
+
+tk.Label(frame, text="LAN Transfer", bg="#1B1B2F", fg="#FEE715", font=("Helvetica", 14, "bold")).pack(pady=10)
+tk.Label(frame, text="Target Host (Receiver IP):", bg="#1B1B2F", fg="white").pack()
+host_entry = tk.Entry(frame, width=30)
+host_entry.insert(0, "127.0.0.1")
+host_entry.pack()
+
+tk.Label(frame, text="Port:", bg="#1B1B2F", fg="white").pack()
+port_entry = tk.Entry(frame, width=10)
+port_entry.insert(0, "5000")
+port_entry.pack()
+
+tk.Button(frame, text="Send Encrypted File", command=send_file_over_lan, bg="#FF6F61", fg="white", **btn_style).pack(pady=5)
+tk.Button(frame, text="Receive Encrypted File", command=receive_file_over_lan, bg="#6A1B9A", fg="white", **btn_style).pack(pady=5)
+
+tk.Label(root, text="Developed by Stuti, Nishtha, Jahnavi", bg="#101820", fg="#AAAAAA", font=("Arial", 10)).pack(pady=5)
+
+root.mainloop()
